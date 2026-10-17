@@ -109,16 +109,68 @@ const VAULT_ABI = ["function initFor(address,string)","function deposit() payabl
 const FACT_ABI = ["function createVault(string,address,uint64) returns(address)","function vaultsOf(address) view returns(tuple(address,string,uint64)[])","function vaultCount() view returns(uint256)"];
 let vault;
 function log(m, ok) { const s = document.getElementById('status'); s.innerHTML = m; s.className = 'status ' + (ok === true ? 'ok' : ok === false ? 'bad' : ''); }
-async function connect() {
-  if (!window.ethereum) return log("Instale MetaMask/Rabby.", false);
-  provider = new ethers.providers.Web3Provider(window.ethereum);
-  await provider.send("eth_requestAccounts", []);
+// ---- conexao robusta (mobile-first) ----
+function getEth() {
+  // multi-provider (EIP-5749) + injecao tardia
+  if (window.ethereum) {
+    if (window.ethereum.providers && window.ethereum.providers.length) {
+      return window.ethereum.providers.find(p => p.isMetaMask) || window.ethereum.providers[0];
+    }
+    return window.ethereum;
+  }
+  return null;
+}
+function deepLink() {
+  // abre ESTA pagina dentro do navegador do MetaMask (onde window.ethereum existe)
+  const host = location.host || "localhost:8080";
+  return "https://metamask.app.link/dapp/" + host + location.pathname + location.hash;
+}
+function showMobileHelp() {
+  document.getElementById('mobile-help').style.display = '';
+  document.getElementById('dl-link').href = deepLink();
+  log("Celular detectado sem provider: abra este link dentro do MetaMask.", false);
+}
+async function conectar() {
+  const eth = getEth();
+  if (!eth) {
+    log("Nenhuma carteira injetada neste navegador.", false);
+    showMobileHelp();
+    return;
+  }
+  try {
+    provider = new ethers.providers.Web3Provider(eth);
+    await provider.send("eth_requestAccounts", []);
+  } catch (e) {
+    if (e && (e.code === 4001 || /reject|negad/i.test(String(e.message || "")))) {
+      return log("Você recusou a conexão. Toque em Conectar e aprove.", false);
+    }
+    return log("Falha na conexão: " + (e.message || e), false);
+  }
+  // garante a rede certa (troca ou ADICIONA a Arbitrum Sepolia)
   const net = await provider.getNetwork();
-  if (net.chainId !== CHAIN) { try { await window.ethereum.request({method: "wallet_switchEthereumChain", params: [{chainId: "0x" + CHAIN.toString(16)}]}); } catch(e) { return log("Adicione a Arbitrum Sepolia na sua carteira.", false); } }
+  if (net.chainId !== CHAIN) {
+    const hex = "0x" + CHAIN.toString(16);
+    try {
+      await eth.request({ method: "wallet_switchEthereumChain", params: [{ chainId: hex }] });
+    } catch (e) {
+      try {
+        await eth.request({ method: "wallet_addEthereumChain", params: [{
+          chainId: hex, chainName: "Arbitrum Sepolia",
+          nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+          rpcUrls: ["https://sepolia-rollup.arbitrum.io/rpc"],
+          blockExplorerUrls: ["https://sepolia.arbiscan.io"] }] });
+      } catch (e2) { return log("Não consegui adicionar a Arbitrum Sepolia.", false); }
+    }
+  }
   signer = provider.getSigner(); user = await signer.getAddress();
   document.getElementById('connect').textContent = user.slice(0, 8) + "…";
+  document.getElementById('mobile-help').style.display = 'none';
   log("Conectado: " + user, true);
 }
+const connect = conectar; // alias: o botao chama connect()
+// injecao tardia: MetaMask as vezes aparece depois do load
+window.addEventListener('ethereum#initialized', () => log("Carteira detectada! Toque em Conectar.", true));
+
 function need() { if (!signer) { throw "Conecte a carteira primeiro"; } }
 async function vaultC() { need(); const a = document.getElementById('vault').value; if (!ethers.utils.isAddress(a)) throw "Cofre inválido"; return new ethers.Contract(a, VAULT_ABI, signer); }
 async function loadVault() {
@@ -158,4 +210,18 @@ async function createVault() { need(); const f = new ethers.Contract(g('factory'
   let addr = "veja o evento"; for (const l of r.logs) { try { const d = f.interface.parseLog(l); if (d && d.name === "VaultCreated") addr = d.args.vault; } catch(e){} }
   document.getElementById('vault').value = addr; log("Cofre criado: " + addr + " ✓", true); } catch (e) { log("Falha: " + (e.reason || e.message), false); } }
 </script>
+<div id="mobile-help" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:99;padding:24px;overflow:auto">
+ <div style="max-width:420px;margin:8vh auto;background:#151926;border-radius:16px;padding:24px;color:#e8e8e8;font-size:15px;line-height:1.5">
+  <b style="font-size:18px">📱 Conectar no celular</b>
+  <p>Este navegador (Chrome/Termux) não expõe a carteira. A página precisa abrir <b>dentro do MetaMask</b>:</p>
+  <ol style="padding-left:18px">
+   <li>Toque no botão abaixo (abre o MetaMask).</li>
+   <li>No navegador do MetaMask, o botão <b>Conectar carteira</b> funciona.</li>
+   <li>Servidor tem que continuar rodando no Termux (<code>python3 -m http.server 8080</code>).</li>
+  </ol>
+  <a id="dl-link" href="#" style="display:block;background:#2b6cb0;color:#fff;text-align:center;padding:12px;border-radius:10px;text-decoration:none;font-weight:600">Abrir no MetaMask 🦊</a>
+  <p style="font-size:12px;opacity:.7">Alternativa desktop: extensão MetaMask/Rabby no navegador e recarregue.</p>
+  <button onclick="this.closest('#mobile-help').style.display='none'" style="margin-top:12px;width:100%;padding:10px;border-radius:10px;border:1px solid #444;background:transparent;color:#aaa">Fechar</button>
+ </div>
+</div>
 </body></html>
