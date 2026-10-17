@@ -85,4 +85,4 @@ Chaves de teste do vault: `solidity/KEYS.json` (NÃO usar em produção — test
 - [ ] Adapters reais de yield (Aave, Morpho, Pendle, Ethena)
 
 ---
-Autor: Clebson Scott — construído pelo Superagent (Base44), out/2026.
+Autor: Clebson Scott 
