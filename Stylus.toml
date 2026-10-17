@@ -1,0 +1,4 @@
+[workspace]
+# ZEUS GUARD — redes de deploy (testnet)
+[workspace.networks]
+arbitrum-sepolia = { endpoint = "https://sepolia-rollup.arbitrum.io/rpc" }

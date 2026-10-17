@@ -1,0 +1,10 @@
+target/
+out/
+cache/
+solidity/out/
+solidity/cache/
+solidity/broadcast/
+*.log
+deploy_log.txt
+solidity/KEYS.json
+Cargo.lock
