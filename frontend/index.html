@@ -31,7 +31,7 @@ a{color:var(--gold)}
 <!-- versao: 2.1-mobile --><div class="wrap">
 <h1>AETHER <span>VAULT</span></h1>
 <div class="sub">Cofres Vivos Compartilhados · Arbitrum Sepolia</div>
-<button id="connect" onclick="connect()">Conectar carteira</button> <small id="ver" style="color:#888">v2.1-mobile</small>
+<button id="connect" onclick="connect()">Conectar carteira</button> <small id="ver" style="color:#888">v2.2-gas</small>
 <div class="card" style="margin-top:52px">
 <h3>Contratos (v2)</h3>
 <label>VaultFactory</label><input id="factory" value="0x8277EF094EdEef248CdA0Fd68bc5af953B01Ba45">
@@ -105,6 +105,26 @@ Repo: <a href="https://github.com/clebson-scott/aether-vault" target="_blank">gi
 <script>
 const {ethers} = window;
 const CHAIN = 421614, RPC = "https://sepolia-rollup.arbitrum.io/rpc";
+// gas auto: o MetaMask as vezes estima maxFee ABAIXO do base fee (bug da Sepolia) e a tx e recusada.
+// Este wrapper recalcula: maxFee = base atual x2 + 1 gwei de folga; tip 0.01 gwei (custo real ~ base + tip).
+function autoGas(sg) {
+  const orig = sg.sendTransaction.bind(sg);
+  sg.sendTransaction = async (tx) => {
+    try {
+      const blk = await provider.getBlock("latest");
+      if (blk && blk.baseFeePerGas) {
+        const bf = blk.baseFeePerGas;
+        const o = {
+          maxFeePerGas: bf.mul(2).add(ethers.utils.parseUnits("1", "gwei")),
+          maxPriorityFeePerGas: ethers.utils.parseUnits("0.01", "gwei")
+        };
+        if (!tx.maxFeePerGas || tx.maxFeePerGas.lt(o.maxFeePerGas)) tx = { ...tx, ...o };
+      }
+    } catch (e) { /* fallback: estimativa padrao */ }
+    return orig(tx);
+  };
+  return sg;
+}
 let provider, signer, user;
 const VAULT_ABI = ["function initFor(address,string)","function deposit() payable","function addMember(address,uint256,uint256)","function promoteMember(address)","function removeMember(address)","function setThreshold(uint256)","function withdrawUnderLimit(address,uint256)","function proposeSpend(address,uint256,uint64,bool)","function approveProposal(uint256)","function executeProposal(uint256,bytes)","function createStream(address,uint256,uint64)","function withdrawStream(uint256) returns(uint256)","function cancelStream(uint256)","function checkIn()","function setHeir(address,uint64)","function claimAsHeir()","function emergencyFreeze(uint64)","function unfreeze()","function setStrategy(address)","function deployToStrategy(uint256)","function harvestFromStrategy(uint256)","function setOracleGate(address)","function ethBalance() view returns(uint256)","function strategyBalance() view returns(uint256)","function threshold() view returns(uint256)","function frozen() view returns(bool)","function freezeUntil() view returns(uint64)","function vaultName() view returns(string)","function owner() view returns(address)","function heir() view returns(address)","function checkinInterval() view returns(uint64)","function lastCheckin() view returns(uint64)","function proposalCount() view returns(uint256)","function memberCount() view returns(uint256)"];
 const FACT_ABI = ["function createVault(string,address,uint64) returns(address)","function vaultsOf(address) view returns(tuple(address,string,uint64)[])","function vaultCount() view returns(uint256)"];
@@ -163,7 +183,7 @@ async function conectar() {
       } catch (e2) { return log("Não consegui adicionar a Arbitrum Sepolia.", false); }
     }
   }
-  signer = provider.getSigner(); user = await signer.getAddress();
+  signer = autoGas(provider.getSigner()); user = await signer.getAddress();
   document.getElementById('connect').textContent = user.slice(0, 8) + "…";
   document.getElementById('mobile-help').style.display = 'none';
   log("Conectado: " + user, true);
