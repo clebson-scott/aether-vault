@@ -86,3 +86,76 @@ Chaves de teste do vault: `solidity/KEYS.json` (NÃO usar em produção — test
 
 ---
 Autor: Clebson Scott — construído pelo Superagent (Base44), out/2026.
+
+## v2.0 — Camada de Produto (17/10/2026)
+
+### Arquitetura completa
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ FRONTEND (frontend/index.html)                              │
+│ MetaMask/Rabby · ethers.js · painel completo do cofre       │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+┌──────────────────────▼──────────────────────────────────────┐
+│ VAULT FACTORY (solidity/src/AetherStack.sol)                │
+│ createVault(nome, herdeiro, gracia) → novo Cofre Vivo       │
+│ registro: vaultsOf(owner), vaultCount()                    │
+└───────┬────────────────────────────────────────────────────┘
+        │ cria
+┌───────▼────────────────────────────────────────────────────┐
+│ AETHER VAULT (Core v1.2)                                   │
+│ initFor(owner, nome) · deposit · addMember/promote/remove   │
+│ multisig M-de-N · limites rolantes · streams pro-rata      │
+│ checkIn/herança · freeze+timelock · IStrategy (yield)     │
+│ IOracleGate (portas condicionais)                          │
+└───────┬──────────────────────┬─────────────────────────────┘
+        │                      │
+┌───────▼───────────┐   ┌──────▼──────────────────────────────┐
+│ CONDITION ORACLE  │   │ YIELD ADAPTER (IStrategy)           │
+│ portas condicionais│ │ mock avançado honesto (8% aa, paga  │
+│ 2-de-3 signatários│   │ só saldo real). Produção: trocar por│
+│ ecrecover nativo  │   │ adapter Aave V3 / Morpho Blue real │
+└───────────────────┘   └─────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ SMART ACCOUNT (AA-minimal, mesmo arquivo AetherStack.sol)   │
+│ owner + passkeys + session keys (teto/validade) + social   │
+│ recovery 2-de-3 · execute() chama o Vault nativamente      │
+│ EntryPoint/paymaster (ERC-4337 completo): PENDENTE         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Como usar a Factory
+```bash
+cast send $FACTORY "createVault(string,address,uint64)" "Cofre da Equipe" 0xHERDEIRO 604800 --rpc-url $RPC --private-key $K
+cast call $FACTORY "vaultsOf(address)" $SEU_ENDERECO --rpc-url $RPC
+```
+
+### Como a Account Abstraction se conecta ao Vault
+O SmartAccount guarda ETH e chama `execute(enderecoDoVault, valor, calldata)`
+para qualquer operação (deposit, propose, approve, checkIn, freeze...).
+Chaves de sessão com teto de gasto permitem que o agente de IA (ou um
+funcionário) opere o cofre com limites, sem gastar acima. Recuperação
+social: 2 de 3 guardians trocam o owner sem seed phrase.
+
+### Como rodar a interface
+```bash
+cd frontend && python3 -m http.server 8080
+# abra http://localhost:8080 — conecte MetaMask na Arbitrum Sepolia
+```
+(O frontend é um arquivo único, sem build. Configure os endereços da
+Factory no topo da página. Funciona direto do repositório.)
+
+### Endereços v2 (Arbitrum Sepolia)
+Ver `solidity/DEPLOY_V2.json` — Factory, ConditionOracle, YieldAdapter,
+SmartAccount e o cofre criado pela factory (atualizado pelo deploy).
+
+### Roadmap até mainnet + Play Store
+1. **Auditoria externa** dos 4 contratos + fuzzing (echidna/medusa)
+2. EntryPoint ERC-4337 real + bundler + paymaster (gas sponsorship com ERC-20)
+3. Adapters reais Aave V3 / Morpho Blue + oráculo de preço Chainlink nas condições
+4. App mobile React Native (a interface atual vira o esqueleto)
+5. Compliance: Termos de uso, KYB para cofres institucionais, LGPD
+6. Play Store: beta fechado → revisão do Google (cripto: declaração de
+   carteira não-custodial) → rollout gradual

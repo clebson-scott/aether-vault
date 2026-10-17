@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aether Vault — Cofres Vivos</title>
+<script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+:root{--bg:#0a0e14;--card:#121826;--gold:#d4a24e;--txt:#e8e2d6;--mut:#8b93a3;--ok:#3ecf8e;--bad:#e5534b}
+*{box-sizing:border-box;margin:0;padding:0;font-family:Georgia,'Times New Roman',serif}
+body{background:var(--bg);color:var(--txt);min-height:100vh;padding:24px}
+.wrap{max-width:980px;margin:0 auto}
+h1{font-size:26px;letter-spacing:1px}h1 span{color:var(--gold)}
+.sub{color:var(--mut);font-size:13px;margin:4px 0 18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid #232c40;border-radius:10px;padding:16px}
+.card h3{font-size:14px;color:var(--gold);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px}
+label{display:block;font-size:12px;color:var(--mut);margin:8px 0 4px}
+input,select{width:100%;background:#0d1320;border:1px solid #2a3450;color:var(--txt);padding:8px 10px;border-radius:6px;font-size:13px}
+button{background:var(--gold);color:#111;border:none;padding:9px 14px;border-radius:6px;cursor:pointer;font-size:13px;margin-top:10px;font-weight:bold}
+button:hover{opacity:.9}button.ghost{background:transparent;color:var(--gold);border:1px solid var(--gold)}
+.status{margin-top:14px;padding:8px;font-size:12px;border-radius:6px;background:#0d1320;color:var(--mut);word-break:break-all}
+.ok{color:var(--ok)}.bad{color:var(--bad)}
+.info{display:flex;flex-wrap:wrap;gap:16px;margin:14px 0;font-size:13px}
+.info b{display:block;color:var(--mut);font-size:11px;font-weight:normal;text-transform:uppercase}
+#connect{float:right}
+a{color:var(--gold)}
+</style>
+</head>
+<body><div class="wrap">
+<h1>AETHER <span>VAULT</span></h1>
+<div class="sub">Cofres Vivos Compartilhados · Arbitrum Sepolia</div>
+<button id="connect" onclick="connect()">Conectar carteira</button>
+<div class="card" style="margin-top:52px">
+<h3>Contratos (v2)</h3>
+<label>VaultFactory</label><input id="factory" value="COLOCAR_AQUI_O_ENDERECO_DA_FACTORY">
+<label>Cofre ativo</label><input id="vault" placeholder="0x... ou crie um abaixo">
+<div style="margin-top:10px"><button class="ghost" onclick="loadVault()">Carregar cofre</button>
+<button class="ghost" onclick="myVaults()">Meus cofres (factory)</button></div>
+</div>
+
+<div id="vaultinfo" class="card" style="display:none;margin-top:14px">
+<h3>Cofre</h3>
+<div class="info">
+<div><b>Nome</b><span id="v-name">—</span></div>
+<div><b>Saldo livre</b><span id="v-bal">—</span></div>
+<div><b>Estratégia (yield)</b><span id="v-strat">—</span></div>
+<div><b>Threshold</b><span id="v-thr">—</span></div>
+<div><b>Congelado?</b><span id="v-frz">—</span></div>
+<div><b>Herdeiro</b><span id="v-heir">—</span></div>
+</div>
+</div>
+
+<div class="grid" style="margin-top:14px">
+<div class="card"><h3>Depositar</h3>
+<label>Valor (ETH)</label><input id="dep-val" value="0.001">
+<button onclick="deposit()">Depositar no cofre</button>
+</div>
+<div class="card"><h3>Membros</h3>
+<label>Endereço do novo membro</label><input id="mem-addr" placeholder="0x...">
+<label>Limite diário (wei)</label><input id="mem-day" value="100000000000000">
+<label>Limite semanal (wei)</label><input id="mem-week" value="300000000000000">
+<button onclick="addMember()">Adicionar membro</button>
+<button class="ghost" onclick="promote()">Promover a admin</button>
+</div>
+<div class="card"><h3>Multisig</h3>
+<label>Destino</label><input id="pr-to" placeholder="0x...">
+<label>Valor (wei)</label><input id="pr-amt" value="1000000000000">
+<label>ID da proposta (aprovar/executar)</label><input id="pr-id" value="0">
+<label>Prova do oráculo (hex, se condicional)</label><input id="pr-proof" value="0x">
+<button onclick="propose()">Propor gasto</button>
+<button class="ghost" onclick="approve()">Aprovar</button>
+<button class="ghost" onclick="execute()">Executar</button>
+</div>
+<div class="card"><h3>Streaming</h3>
+<label>Beneficiário</label><input id="st-to" placeholder="0x...">
+<label>Total (wei)</label><input id="st-amt" value="1000000000000">
+<label>Duração (segundos)</label><input id="st-dur" value="86400">
+<label>ID do stream (claim)</label><input id="st-id" value="0">
+<button onclick="createStream()">Criar stream</button>
+<button class="ghost" onclick="claimStream()">Claim pro-rata</button>
+</div>
+<div class="card"><h3>Herança & Emergência</h3>
+<label>Herdeiro (endereço)</label><input id="heir-addr" placeholder="0x...">
+<label>Grácia (segundos sem checkIn)</label><input id="heir-grace" value="604800">
+<button onclick="setHeir()">Armar herdeiro</button>
+<button class="ghost" onclick="checkIn()">checkIn (estou vivo)</button>
+<button class="ghost" onclick="claimHeir()">Reivindicar herança</button>
+<label>Freeze (minutos)</label><input id="frz-min" value="60">
+<button onclick="freeze()">🚨 Emergência</button>
+<button class="ghost" onclick="unfreeze()">Descongelar</button>
+</div>
+<div class="card"><h3>Criar Cofre Vivo (Factory)</h3>
+<label>Nome</label><input id="nv-name" value="Cofre da Família">
+<button onclick="createVault()">Criar novo cofre</button>
+<div class="sub" style="margin-top:8px">v1: herdeiro/grácia configuram-se depois pelo painel Herança</div>
+</div>
+</div>
+<div id="status" class="status">Desconectado.</div>
+<div class="sub" style="margin-top:18px;text-align:center">
+Repo: <a href="https://github.com/clebson-scott/aether-vault" target="_blank">github.com/clebson-scott/aether-vault</a>
+</div>
+</div>
+<script>
+const {ethers} = window;
+const CHAIN = 421614, RPC = "https://sepolia-rollup.arbitrum.io/rpc";
+let provider, signer, user;
+const VAULT_ABI = ["function initFor(address,string)","function deposit() payable","function addMember(address,uint256,uint256)","function promoteMember(address)","function removeMember(address)","function setThreshold(uint256)","function withdrawUnderLimit(address,uint256)","function proposeSpend(address,uint256,uint64,bool)","function approveProposal(uint256)","function executeProposal(uint256,bytes)","function createStream(address,uint256,uint64)","function withdrawStream(uint256) returns(uint256)","function cancelStream(uint256)","function checkIn()","function setHeir(address,uint64)","function claimAsHeir()","function emergencyFreeze(uint64)","function unfreeze()","function setStrategy(address)","function deployToStrategy(uint256)","function harvestFromStrategy(uint256)","function setOracleGate(address)","function ethBalance() view returns(uint256)","function strategyBalance() view returns(uint256)","function threshold() view returns(uint256)","function frozen() view returns(bool)","function freezeUntil() view returns(uint64)","function vaultName() view returns(string)","function owner() view returns(address)","function heir() view returns(address)","function checkinInterval() view returns(uint64)","function lastCheckin() view returns(uint64)","function proposalCount() view returns(uint256)","function memberCount() view returns(uint256)"];
+const FACT_ABI = ["function createVault(string,address,uint64) returns(address)","function vaultsOf(address) view returns(tuple(address,string,uint64)[])","function vaultCount() view returns(uint256)"];
+let vault;
+function log(m, ok) { const s = document.getElementById('status'); s.innerHTML = m; s.className = 'status ' + (ok === true ? 'ok' : ok === false ? 'bad' : ''); }
+async function connect() {
+  if (!window.ethereum) return log("Instale MetaMask/Rabby.", false);
+  provider = new ethers.providers.Web3Provider(window.ethereum);
+  await provider.send("eth_requestAccounts", []);
+  const net = await provider.getNetwork();
+  if (net.chainId !== CHAIN) { try { await window.ethereum.request({method: "wallet_switchEthereumChain", params: [{chainId: "0x" + CHAIN.toString(16)}]}); } catch(e) { return log("Adicione a Arbitrum Sepolia na sua carteira.", false); } }
+  signer = provider.getSigner(); user = await signer.getAddress();
+  document.getElementById('connect').textContent = user.slice(0, 8) + "…";
+  log("Conectado: " + user, true);
+}
+function need() { if (!signer) { throw "Conecte a carteira primeiro"; } }
+async function vaultC() { need(); const a = document.getElementById('vault').value; if (!ethers.utils.isAddress(a)) throw "Cofre inválido"; return new ethers.Contract(a, VAULT_ABI, signer); }
+async function loadVault() {
+  try { vault = await vaultC(); const f = new ethers.Contract(document.getElementById('factory').value, FACT_ABI, signer);
+    document.getElementById('vaultinfo').style.display = '';
+    document.getElementById('v-name').textContent = await vault.vaultName();
+    document.getElementById('v-bal').textContent = ethers.utils.formatEther(await vault.ethBalance()) + " ETH";
+    document.getElementById('v-strat').textContent = ethers.utils.formatEther(await vault.strategyBalance()) + " ETH";
+    document.getElementById('v-thr').textContent = (await vault.threshold()).toString();
+    document.getElementById('v-frz').textContent = (await vault.frozen()) ? "SIM até " + new Date((await vault.freezeUntil()) * 1000).toLocaleTimeString() : "não";
+    document.getElementById('v-heir').textContent = (await vault.heir());
+    log("Cofre carregado.", true);
+  } catch (e) { log("Erro: " + e, false); }
+}
+async function myVaults() {
+  try { need(); const f = new ethers.Contract(document.getElementById('factory').value, FACT_ABI, signer);
+    const list = await f.vaultsOf(user);
+    log("Seus cofres: " + list.map(v => v[0]).join(" · ") || "nenhum ainda", true);
+  } catch (e) { log("Erro: " + e, false); }
+}
+async function run(name, fn) { try { need(); const tx = await fn(); log(name + " enviada… aguarde", true); const r = await tx.wait(); log(name + " OK ✓ " + r.transactionHash, true); } catch (e) { log(name + " FALHOU: " + (e.reason || e.message || e), false); } }
+const g = id => document.getElementById(id).value;
+async function deposit() { const v = await vaultC(); run("Depósito", () => v.deposit({value: ethers.utils.parseEther(g('dep-val'))})); }
+async function addMember() { const v = await vaultC(); run("Add membro", () => v.addMember(g('mem-addr'), g('mem-day'), g('mem-week'))); }
+async function promote() { const v = await vaultC(); run("Promoção", () => v.promoteMember(g('mem-addr'))); }
+async function propose() { const v = await vaultC(); run("Proposta", () => v.proposeSpend(g('pr-to'), g('pr-amt'), 600, false)); }
+async function approve() { const v = await vaultC(); run("Aprovação", () => v.approveProposal(g('pr-id'))); }
+async function execute() { const v = await vaultC(); const p = g('pr-proof'); run("Execução", () => v.executeProposal(g('pr-id'), p === "0x" ? [] : p)); }
+async function createStream() { const v = await vaultC(); run("Stream", () => v.createStream(g('st-to'), g('st-amt'), g('st-dur'))); }
+async function claimStream() { const v = await vaultC(); run("Claim", () => v.withdrawStream(g('st-id'))); }
+async function checkIn() { const v = await vaultC(); run("checkIn", () => v.checkIn()); }
+async function setHeir() { const v = await vaultC(); run("Herdeiro", () => v.setHeir(g('heir-addr'), g('heir-grace'))); }
+async function claimHeir() { const v = await vaultC(); run("Herança", () => v.claimAsHeir()); }
+async function freeze() { const v = await vaultC(); run("EMERGÊNCIA", () => v.emergencyFreeze(g('frz-min'))); }
+async function unfreeze() { const v = await vaultC(); run("Unfreeze", () => v.unfreeze()); }
+async function createVault() { need(); const f = new ethers.Contract(g('factory'), FACT_ABI, signer); try { const tx = await f.createVault(g('nv-name'), ethers.constants.AddressZero, 604800); const r = await tx.wait();
+  let addr = "veja o evento"; for (const l of r.logs) { try { const d = f.interface.parseLog(l); if (d && d.name === "VaultCreated") addr = d.args.vault; } catch(e){} }
+  document.getElementById('vault').value = addr; log("Cofre criado: " + addr + " ✓", true); } catch (e) { log("Falha: " + (e.reason || e.message), false); } }
+</script>
+</body></html>

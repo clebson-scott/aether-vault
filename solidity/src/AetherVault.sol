@@ -153,6 +153,18 @@ contract AetherVault {
         _addMember(msg.sender, ROLE_ADMIN, type(uint256).max, type(uint256).max);
     }
 
+    /// init via factory: owner explicito (a factory nao ganha privilegios)
+    function initFor(address owner_, string calldata name) external {
+        if (initialized) return;
+        if (owner_ == address(0)) revert ZeroAddress();
+        vaultName = name;
+        owner = owner_;
+        initialized = true;
+        threshold = 1;
+        lastCheckin = uint64(block.timestamp);
+        _addMember(owner_, ROLE_ADMIN, type(uint256).max, type(uint256).max);
+    }
+
     // ---- depositos: qualquer um pode alimentar (cofre publico) ----
     receive() external payable { _credit(msg.sender); }
     function deposit() external payable { _credit(msg.sender); }
