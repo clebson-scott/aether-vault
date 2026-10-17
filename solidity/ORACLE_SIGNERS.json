@@ -1,0 +1,14 @@
+{
+ "sg1": {
+  "addr": "0x3e2e421E7f574d4b7EC6B1C7D6AA7fC9598690E2",
+  "key": "8f0e3cc79670ee6f3bfa3e599cc80388ac1cc082a88e1ff5dc57b7abc6b6375d"
+ },
+ "sg2": {
+  "addr": "0x10830fa7E6a21f508Ce1d9a34E18F6Cc41706139",
+  "key": "5ae83432b691471690e1f923f0f9673748cea6952f4b7e829ad5e326528ff360"
+ },
+ "sg3": {
+  "addr": "0x903E0F6FF970101d66D3596bD40eb0DAcde00662",
+  "key": "6ea95925d00afa9cdb660ab9a1346706ff1b84d6377852d953a642722f43791f"
+ }
+}

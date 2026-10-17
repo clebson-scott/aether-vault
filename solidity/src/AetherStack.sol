@@ -100,7 +100,7 @@ contract ConditionOracle {
             valid++;
         }
         if (valid < threshold) revert UnknownSigner(last);
-        emit GateOpened(vault, proposalId, id);
+        // evento removido: check agora e staticcall-safe (o vault chama via view/estatica)
         return true;
     }
 

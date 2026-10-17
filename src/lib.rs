@@ -35,7 +35,7 @@ sol! {
         function withdraw(uint256 amount) external returns (uint256);
     }
     interface IOracleGate {
-        function check(address vault, uint256 proposal_id, bytes calldata proof) external view returns (bool);
+        function check(address vault, uint256 proposal_id, bytes calldata proof) external returns (bool);
     }
 }
 
@@ -383,7 +383,7 @@ impl AetherVault {
                 proof: oracle_proof,
             };
             let data = call.abi_encode();
-            let res = unsafe { RawCall::new_static(self.vm()).call(gate, &data) }
+            let res = unsafe { RawCall::new(self.vm()).gas(u64::MAX).call(gate, &data) }
                 .map_err(|_| AetherError::ProposalExpired(ProposalExpired {}))?;
             let ok = res.first() == Some(&1u8);
             if !ok { return Err(AetherError::ProposalExpired(ProposalExpired {})); }

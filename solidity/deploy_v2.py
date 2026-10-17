@@ -10,13 +10,17 @@ RPC = "https://sepolia-rollup.arbitrum.io/rpc"
 w3 = Web3(Web3.HTTPProvider(RPC, request_kwargs={"timeout": 30}))
 HERE = Path(__file__).parent
 DEPLOYER = Account.from_key("0xc5c66dff1c3cfae98bea54fc80598a69f680e2d83c22105ebff02c9ca87934bf")
-MFEE = w3.to_wei(0.025, "gwei"); PFEE = w3.to_wei(0.001, "gwei")
+MFEE = w3.to_wei(0.021, "gwei"); PFEE = w3.to_wei(0.001, "gwei")
 H = []
 def txh(r):
     H.append(r["transactionHash"].hex()); return "https://sepolia.arbiscan.io/tx/" + r["transactionHash"].hex()
 def art(name): return json.loads((HERE / "out" / "AetherStack.sol" / (name + ".json")).read_text())
 def av_art(): return json.loads((HERE / "out" / "AetherVault.sol" / "AetherVault.json").read_text())
-def send(acct, fn, value=0, gas=1200000):
+def send(acct, fn, value=0, gas=None):
+    if gas is None:
+        try: gas = min(int(w3.eth.estimate_gas(fn.build_transaction({"from": acct.address, "value": value})) * 1.6) + 60000, 8000000)
+        except Exception as e:
+            print("estimate falhou:", str(e)[:120]); raise
     t = fn.build_transaction({"from": acct.address, "nonce": w3.eth.get_transaction_count(acct.address, "pending"),
                               "chainId": w3.eth.chain_id, "value": value,
                               "gas": gas, "maxFeePerGas": MFEE, "maxPriorityFeePerGas": PFEE})
@@ -32,66 +36,30 @@ def find_event(rc, sig):
 
 print("deployer:", w3.eth.get_balance(DEPLOYER.address), "wei")
 
-# --- 0. destravar gas do vault antigo (tesouraria paga o reembolso via proposta) ---
-OLD = "0xc937f1e44d037D5AcAC6e7f1016698650f900B19"
-old = w3.eth.contract(address=w3.to_checksum_address(OLD), abi=av_art()["abi"])
-send(DEPLOYER, old.functions.setThreshold(1), gas=350000)
-pid = old.functions.proposalCount().call()
-send(DEPLOYER, old.functions.proposeSpend(DEPLOYER.address, 35000000000000, 60, False), gas=350000)
-send(DEPLOYER, old.functions.approveProposal(pid), gas=350000)
-send(DEPLOYER, old.functions.executeProposal(pid, b""), gas=350000)
-print("refund ok | deployer:", w3.eth.get_balance(DEPLOYER.address))
+# (passo 0 removido: saldo do deployer ja e suficiente)
+def _art(n):
+    return json.loads((HERE / "out" / "AetherStack.sol" / (n + ".json")).read_text())
+def fa_art(): return _art("VaultFactory")
+def or_art(): return _art("ConditionOracle")
+def ya_art(): return _art("YieldAdapter")
+def sa_art(): return _art("SmartAccount")
 
-# --- 1. VaultFactory ---
-f = w3.eth.contract(abi=art("VaultFactory")["abi"], bytecode=art("VaultFactory")["bytecode"]["object"])
-rc = send(DEPLOYER, f.constructor())
-FACT = w3.to_checksum_address(rc.contractAddress)
-f = w3.eth.contract(address=FACT, abi=art("VaultFactory")["abi"])
-print("FACTORY:", FACT, "|", txh(rc))
+# (factory/oracle/condicao ja deployados na rodada anterior)
+FAC = "0x8277EF094EdEef248CdA0Fd68bc5af953B01Ba45"
+ORC = "0x81d09BB77e39899585d87E2960c429b430E275FD"
+COND = bytes.fromhex("a981fe72b057853826e7e1b175d41e50cb1a98d2ca14ba69d54defd4126da5e0")
+f = w3.eth.contract(address=w3.to_checksum_address(FAC), abi=fa_art()["abi"])
+o = w3.eth.contract(address=w3.to_checksum_address(ORC), abi=or_art()["abi"])
+ORAC = ORC
+_oss = json.loads((HERE / "ORACLE_SIGNERS.json").read_text())
+sg1 = Account.from_key(_oss["sg1"]["key"]); sg2 = Account.from_key(_oss["sg2"]["key"]); sg3 = Account.from_key(_oss["sg3"]["key"])
 
-# --- 2. ConditionOracle (3 signatarios, threshold 2) ---
-sg1, sg2, sg3 = Account.create(), Account.create(), Account.create()
-Path(HERE / "ORACLE_SIGNERS.json").write_text(json.dumps({
-    "sg1": {"addr": sg1.address, "key": sg1.key.hex()},
-    "sg2": {"addr": sg2.address, "key": sg2.key.hex()},
-    "sg3": {"addr": sg3.address, "key": sg3.key.hex()}}, indent=1))
-o = w3.eth.contract(abi=art("ConditionOracle")["abi"], bytecode=art("ConditionOracle")["bytecode"]["object"])
-rc = send(DEPLOYER, o.constructor([sg1.address, sg2.address, sg3.address], 2))
-ORAC = w3.to_checksum_address(rc.contractAddress)
-o = w3.eth.contract(address=ORAC, abi=art("ConditionOracle")["abi"])
-print("ORACLE:", ORAC, "|", txh(rc))
-# sg1 registra a condicao (precisa de gas)
-send(DEPLOYER, w3.eth.account, value=0) if False else None
-raw = {"from": DEPLOYER.address, "to": sg1.address, "value": 10000000000000,
-       "nonce": w3.eth.get_transaction_count(DEPLOYER.address, "pending"),
-       "chainId": w3.eth.chain_id, "gas": 30000, "maxFeePerGas": MFEE, "maxPriorityFeePerGas": PFEE}
-w3.eth.wait_for_transaction_receipt(w3.eth.send_raw_transaction(DEPLOYER.sign_transaction(raw).raw_transaction), timeout=60)
-rc = send(sg1, o.functions.registerCondition("BTC acima de 100k USD"), gas=300000)
-lg = find_event(rc, "ConditionRegistered(bytes32,string,uint256)")
-COND = lg["topics"][1]
-print("CONDICAO:", COND.hex(), "|", txh(rc))
-
-# --- 3. Factory cria cofre novo; deposito; adapter de yield ---
-rc = send(DEPLOYER, f.functions.createVault("Cofre Scott", DEPLOYER.address, 3600), gas=2500000)
-lg = find_event(rc, "VaultCreated(address,address,string)")
-NEWV = w3.to_checksum_address("0x" + lg["topics"][2].hex()[-40:])
-print("NOVO COFRE VIA FACTORY:", NEWV, "|", txh(rc))
+# (secao 3 concluida na rodada anterior: cofre criado, deposit, adapter, harvest)
+NEWV = "0x47f22989D80ff1F02bb0a3F4103930264488B556"
+YLD = "0x0C3eb6A9612A67aDF889EE4881cbbf4b42BFb581"
 v_abi = av_art()["abi"]
 nv = w3.eth.contract(address=w3.to_checksum_address(NEWV), abi=v_abi)
-print("nome:", nv.functions.vaultName().call(), "| owner ok:", nv.functions.owner().call() == DEPLOYER.address)
-send(DEPLOYER, nv.functions.deposit(), value=200000000000000, gas=300000)
-print("deposit ok:", nv.functions.ethBalance().call(), "wei")
-
-y = w3.eth.contract(abi=art("YieldAdapter")["abi"], bytecode=art("YieldAdapter")["bytecode"]["object"])
-rc = send(DEPLOYER, y.constructor(w3.to_checksum_address(NEWV)))
-YLD = w3.to_checksum_address(rc.contractAddress)
-print("YIELD ADAPTER:", YLD, "|", txh(rc))
-send(DEPLOYER, nv.functions.setStrategy(YLD), gas=300000)
-send(DEPLOYER, nv.functions.deployToStrategy(100000000000000), gas=400000)
-print("alocado | strategyBalance:", nv.functions.strategyBalance().call())
-time.sleep(15)
-rc = send(DEPLOYER, nv.functions.harvestFromStrategy(10000000000000), gas=400000)
-print("harvest ok |", txh(rc))
+print("retomando no cofre existente:", NEWV, "| saldo:", nv.functions.ethBalance().call())
 
 # --- 4. Porta condicional REAL: proposta com oraculo 2-de-3 ---
 send(DEPLOYER, nv.functions.setOracleGate(ORAC), gas=300000)

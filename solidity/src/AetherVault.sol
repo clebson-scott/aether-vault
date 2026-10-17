@@ -11,7 +11,7 @@ interface IStrategy {
     function withdraw(uint256 amount) external returns (uint256);
 }
 interface IOracleGate {
-    function check(address vault, uint256 proposalId, bytes calldata proof) external view returns (bool);
+    function check(address vault, uint256 proposalId, bytes calldata proof) external returns (bool);
 }
 
 contract AetherVault {

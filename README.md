@@ -147,9 +147,23 @@ cd frontend && python3 -m http.server 8080
 (O frontend é um arquivo único, sem build. Configure os endereços da
 Factory no topo da página. Funciona direto do repositório.)
 
-### Endereços v2 (Arbitrum Sepolia)
-Ver `solidity/DEPLOY_V2.json` — Factory, ConditionOracle, YieldAdapter,
-SmartAccount e o cofre criado pela factory (atualizado pelo deploy).
+### Endereços v2 (Arbitrum Sepolia) — TODOS DEPLOYADOS E PROVADOS
+
+| Contrato | Endereço | Prova |
+|---|---|---|
+| VaultFactory | `0x8277EF094EdEef248CdA0Fd68bc5af953B01Ba45` | criou o cofre abaixo |
+| Cofre via Factory ("Cofre Scott") | `0x47f22989D80ff1F02bb0a3F4103930264488B556` | deposit + yield + porta oracular |
+| ConditionOracle (2-de-3) | `0x774fD6D54180B79DA5c64a76F297651d10c93f16` | proposta executada com prova de 2 assinaturas |
+| YieldAdapter | `0x0C3eb6A9612A67aDF889EE4881cbbf4b42BFb581` | alocação + harvest on-chain |
+| SmartAccount (AA-minimal) | `0x3C1657113FF5EB6B7C54eAfb4Ab5494490C83b15` | deposit no cofre + session key + social recovery 2-de-3 |
+| AetherVault Core (prova v1) | `0xc937f1e44d037D5AcAC6e7f1016698650f900B19` | 36 txs da prova viva v1.2 |
+
+Hashes da prova v2: `solidity/DEPLOY_V2.json`. Signatários do oráculo: `solidity/ORACLE_SIGNERS.json` (testnet).
+
+**Status on-chain real:** Factory, Oracle (gate condicional com 2 assinaturas reais),
+YieldAdapter (ciclo completo), SmartAccount (deposit, session key, social recovery
+confirmada) e o cofre da Factory — tudo executado na Sepolia. O que ainda é só
+código: EntryPoint ERC-4337/bundler/paymaster, adapters Aave/Morpho reais e o app mobile.
 
 ### Roadmap até mainnet + Play Store
 1. **Auditoria externa** dos 4 contratos + fuzzing (echidna/medusa)
