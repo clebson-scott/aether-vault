@@ -27,10 +27,11 @@ button:hover{opacity:.9}button.ghost{background:transparent;color:var(--gold);bo
 a{color:var(--gold)}
 </style>
 </head>
-<body><div class="wrap">
+<body>
+<!-- versao: 2.1-mobile --><div class="wrap">
 <h1>AETHER <span>VAULT</span></h1>
 <div class="sub">Cofres Vivos Compartilhados · Arbitrum Sepolia</div>
-<button id="connect" onclick="connect()">Conectar carteira</button>
+<button id="connect" onclick="connect()">Conectar carteira</button> <small id="ver" style="color:#888">v2.1-mobile</small>
 <div class="card" style="margin-top:52px">
 <h3>Contratos (v2)</h3>
 <label>VaultFactory</label><input id="factory" value="0x8277EF094EdEef248CdA0Fd68bc5af953B01Ba45">
@@ -170,6 +171,8 @@ async function conectar() {
 const connect = conectar; // alias: o botao chama connect()
 // injecao tardia: MetaMask as vezes aparece depois do load
 window.addEventListener('ethereum#initialized', () => log("Carteira detectada! Toque em Conectar.", true));
+// mobile: se nao ha provider injetado, mostra o atalho na hora (sem esperar o clique)
+if (!getEth() && /Mobi|Android/i.test(navigator.userAgent)) setTimeout(showMobileHelp, 600);
 
 function need() { if (!signer) { throw "Conecte a carteira primeiro"; } }
 async function vaultC() { need(); const a = document.getElementById('vault').value; if (!ethers.utils.isAddress(a)) throw "Cofre inválido"; return new ethers.Contract(a, VAULT_ABI, signer); }
