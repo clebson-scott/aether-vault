@@ -13,7 +13,7 @@ HERE = Path(__file__).parent
 abi = json.loads((HERE / "out" / "AetherVault.sol" / "AetherVault.json").read_text())["abi"]
 mock_art = json.loads((HERE / "out" / "AetherVault.sol" / "MockStrategy.json").read_text())
 
-DEPLOYER = Account.from_key("0xc5c66dff1c3cfae98bea54fc80598a69f680e2d83c22105ebff02c9ca87934bf")
+DEPLOYER = Account.from_key("os.environ.get("DEPLOYER_KEY")")
 ETH = 10**18
 GAS = {"gas": 700000, "maxFeePerGas": w3.to_wei(0.05, "gwei"), "maxPriorityFeePerGas": w3.to_wei(0.001, "gwei")}
 H = []

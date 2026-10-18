@@ -12,7 +12,7 @@ CA = "0xc937f1e44d037D5AcAC6e7f1016698650f900B19"
 abi = json.loads((HERE / "out" / "AetherVault.sol" / "AetherVault.json").read_text())["abi"]
 mock_art = json.loads((HERE / "out" / "AetherVault.sol" / "MockStrategy.json").read_text())
 vault = w3.eth.contract(address=w3.to_checksum_address(CA), abi=abi)
-DEPLOYER = Account.from_key("0xc5c66dff1c3cfae98bea54fc80598a69f680e2d83c22105ebff02c9ca87934bf")
+DEPLOYER = Account.from_key("os.environ.get("DEPLOYER_KEY")")
 K = json.loads((HERE / "KEYS.json").read_text())
 heirb2 = Account.from_key(K["heirb2"])
 

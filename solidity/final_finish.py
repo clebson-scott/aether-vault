@@ -8,7 +8,7 @@ from eth_account import Account
 RPC = "https://sepolia-rollup.arbitrum.io/rpc"
 w3 = Web3(Web3.HTTPProvider(RPC, request_kwargs={"timeout": 30}))
 HERE = Path(__file__).parent
-DEPLOYER = Account.from_key("0xc5c66dff1c3cfae98bea54fc80598a69f680e2d83c22105ebff02c9ca87934bf")
+DEPLOYER = Account.from_key("os.environ.get("DEPLOYER_KEY")")
 
 # 1. varre contas de teste com sobra (m3b, heirb2 do KEYS.json)
 try:

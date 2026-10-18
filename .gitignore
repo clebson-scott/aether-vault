@@ -8,3 +8,4 @@ solidity/broadcast/
 deploy_log.txt
 solidity/KEYS.json
 Cargo.lock
+ORACLE_SIGNERS.json

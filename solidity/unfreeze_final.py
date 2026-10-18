@@ -10,7 +10,7 @@ HERE = Path(__file__).parent
 CA = "0xc937f1e44d037D5AcAC6e7f1016698650f900B19"
 abi = json.loads((HERE / "ABI_AetherVault.json").read_text())
 vault = w3.eth.contract(address=w3.to_checksum_address(CA), abi=abi)
-DEPLOYER = Account.from_key("0xc5c66dff1c3cfae98bea54fc80598a69f680e2d83c22105ebff02c9ca87934bf")
+DEPLOYER = Account.from_key("os.environ.get("DEPLOYER_KEY")")
 print("frozen:", vault.functions.frozen().call(), "| freezeUntil:", vault.functions.freezeUntil().call())
 def send(fn, gas=350000):
     t = fn.build_transaction({"from": DEPLOYER.address, "nonce": w3.eth.get_transaction_count(DEPLOYER.address, "pending"),

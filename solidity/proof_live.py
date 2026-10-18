@@ -16,7 +16,7 @@ ART = HERE / "out" / "AetherVault.sol" / "AetherVault.json"
 art = json.loads(ART.read_text())
 abi, bytecode = art["abi"], art["bytecode"]["object"]
 
-DEPLOYER = Account.from_key("0xc5c66dff1c3cfae98bea54fc80598a69f680e2d83c22105ebff02c9ca87934bf")
+DEPLOYER = Account.from_key("os.environ.get("DEPLOYER_KEY")")
 ETH = 10**18
 GAS = {"gas": 1500000, "maxFeePerGas": w3.to_wei(0.05, "gwei"), "maxPriorityFeePerGas": w3.to_wei(0.001, "gwei")}
 HASHES = []

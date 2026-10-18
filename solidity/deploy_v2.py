@@ -9,7 +9,7 @@ from eth_account.messages import encode_defunct
 RPC = "https://sepolia-rollup.arbitrum.io/rpc"
 w3 = Web3(Web3.HTTPProvider(RPC, request_kwargs={"timeout": 30}))
 HERE = Path(__file__).parent
-DEPLOYER = Account.from_key("0xc5c66dff1c3cfae98bea54fc80598a69f680e2d83c22105ebff02c9ca87934bf")
+DEPLOYER = Account.from_key("os.environ.get("DEPLOYER_KEY")")
 MFEE = w3.to_wei(0.021, "gwei"); PFEE = w3.to_wei(0.001, "gwei")
 H = []
 def txh(r):
